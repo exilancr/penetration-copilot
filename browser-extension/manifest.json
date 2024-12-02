@@ -1,8 +1,11 @@
 {
     "description": "Dumps current page to localhost",
-    "manifest_version": 3,
+    "manifest_version": 2,
     "name": "LocalDump",
     "version": "1.0",
+
+    "homepage_url": "https://localhost",
+
     "icons": {
         "48": "icons/icon-48.png"
     },
@@ -11,14 +14,13 @@
             "background.js"
         ]
     },
-    "action": {
-        "default_icon": "icons/icon-32.png"
+    "browser_action": {
+        "default_icon": "icons/icon-48.png",
+        "default_title": "Penetrate"
     },
     "permissions": [
         "tabs",
-        "webRequest"
-    ],
-    "host_permissions": [
+        "webRequest",
         "<all_urls>"
     ]
 }

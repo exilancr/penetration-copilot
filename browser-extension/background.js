@@ -1,5 +1,6 @@
 
 function penetrate() {
+    console.log("Penetrating...");
     // Get current tab
     browser.tabs.query({ active: true, currentWindow: true })
         .then((tabs) => {
