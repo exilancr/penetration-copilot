@@ -1,0 +1,175 @@
+{% extends "base.html.jinja" %}
+{% block title %}{{posting.title}} - {{posting.company}} - {{title}}{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<div>
+    <h1>{{ posting.title }}</h1>
+    <div>
+        <b>{{ posting.company }}</b> |
+        <a
+            href="#"
+            hx-get="/posting/rescrape/{{posting.id}}"
+            class="mimic"
+            hx-trigger="click"
+            hx-swap="none"
+            placeholder="working..."
+        ><i class="fa-solid fa-refresh"></i></a>&nbsp<span id="rescrape-status"></span>|
+        <a class="mimic" href="{{posting.url}}"><i class="fa-solid fa-globe"></i>&nbsp;<u>Original</u></a> |
+        <span><i class="fa-solid fa-upload"></i>&nbsp;{{ posting.posted_at | safe_date }}</span> |
+        <span><i class="fa-solid fa-business-time" style="color: #993333;"></i>&nbsp;{{ posting.deadline_at | safe_date }}</span>
+    </div>
+    <p>{{ posting.description }}</p>
+    <div>
+        {% for skill in posting.skills %}
+            <span class='chip dotted rounded xsmall'>{{ skill }}</span>
+        {% endfor %}
+    </div>
+    <h2>Intelligence</h2>
+    <div>
+    {% if posting.intelligence.bullshit_job %}
+        <span class='xsmall button-error chip'>Bullshit</span>
+    {% endif %}
+    {% if posting.intelligence.hard_to_pass %}
+        <span class='xsmall button-error chip'>Hard to pass</span>
+    {% endif %}
+    {% if posting.intelligence.fixed_term %}
+        <span class='xsmall button-error chip'>Fixed Term</span>
+    {% endif %}
+    {% if posting.intelligence.remote %}
+        <span class='xsmall chip'>Remote</span>
+    {% endif %}
+    {% if posting.intelligence.hybrid %}
+        <span class='xsmall chip'>Hybrid</span>
+    {% endif %}
+    {% if posting.intelligence.onsite %}
+        <span class='xsmall chip'>On Site</span>
+    {% endif %}
+    </div>
+    <div class='pure-g'>
+        <div class='pure-u-1-2'>
+            <h3>Terms</h3>
+            <div class='chip'>
+                <i class="fa-solid fa-language"></i>&nbsp;{{posting.intelligence.language_requirements}}
+            </div>
+            <div class='chip'>
+                <i class="fa-solid fa-people-group"></i>&nbsp;{{posting.intelligence.company_size}}
+            </div>
+            <div class='chip'>
+                <i class="fa-solid fa-industry"></i>&nbsp;{{posting.intelligence.company_industry}}
+            </div>
+            <div class='chip'>
+                <i class="fa-solid fa-crown"></i>&nbsp;{{posting.intelligence.seniority_level}}
+            </div>
+            <div class='chip'>
+                <i class="fa-solid fa-map-marker-alt"></i>&nbsp;{{posting.intelligence.location}}
+            </div>
+            <div class='chip'>
+                <i class="fa-solid fa-bowl-rice"></i>&nbsp;{{posting.intelligence.salary_range}}
+            </div>
+        </div>
+        <div class='pure-u-1-2'>
+            <h3>Benefits</h3>
+            <ul>
+                {% for benefit in posting.intelligence.benefits %}
+                    <li>{{ benefit }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class='pure-g'>
+        <div class='pure-u-1-2'>
+            <h3>Pros</h3>
+            <ul class="wrap-words">
+                {% for value in posting.intelligence.job_pros %}
+                    <li>{{ value }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class='pure-u-1-2'>
+            <h3>Cons</h3>
+            <ul class="wrap-words">
+                {% for value in posting.intelligence.job_cons %}
+                    <li>{{ value }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div>
+        <h3>Advice</h3>
+        <p>{{ posting.intelligence.brief_jobseeker_advice }}</p>
+    </div>
+    <div>
+        <!-- <pre><code>{{ posting.intelligence | pydantic_to_json(indent=2) }}</code></pre> -->
+    </div>
+
+
+</div>
+
+<script>
+    document.addEventListener('htmx:afterOnLoad', function(event) {
+        if (event.detail.xhr.responseURL.includes('rescrape')) {
+            refreshScrapingStatus();
+        }
+    });
+
+    document.addEventListener('htmx:responseError', function(event) {
+        if (event.detail.xhr.responseURL.includes('rescrape')) {
+            onRescrapeFailed();
+        }
+    });
+
+    function onRescrapeSuccess() {
+        document.getElementById('rescrape-status').innerHTML = '<i class="fa-solid fa-check" style="color: #339933;"></i>';
+        // Clear innerhtml after 10 seconds
+        setTimeout(() => {
+            document.getElementById('rescrape-status').innerHTML = '';
+        }, 10000);
+    }
+
+    function onRescrapeOngoing(iteration = 0) {
+        document.getElementById('rescrape-status').innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="color: #333399;"></i>';
+    }
+
+    function onRescrapeFailed() {
+        document.getElementById('rescrape-status').innerHTML = '<i class="fa-solid fa-exclamation-triangle" style="color: #993333;"></i>';
+        // Clear innerhtml after 10 seconds
+        setTimeout(() => {
+            document.getElementById('rescrape-status').innerHTML = '';
+        }, 10000);
+    }
+
+    function refreshScrapingStatus(iteration = 0) {
+        if (!iteration) {
+            onRescrapeOngoing();
+        }
+        let id = '{{ posting.id }}';
+        fetch('/posting/uploadStatus?' + new URLSearchParams({
+            id: id
+        }), {
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            method: 'GET',
+
+        }).then(response => response.json())
+            .then(data => {
+                console.log('Response:', data);
+                if (data.status == "ok") {
+                    onRescrapeSuccess();
+                } else if (data.status == "waiting") {
+                    // Wait for 1 second and try again
+                    setTimeout(() => {
+                        refreshScrapingStatus(iteration + 1);
+                    }, 1000);
+                } else {
+                    onRescrapeFailed();
+                    throw new Error("Unexpected status: " + data.status);
+                }
+            })
+            .catch(error => {
+                onRescrapeFailed();
+                console.error('Error:', error);  // Handle any errors
+            });
+    }
+</script>
+{% endblock %}

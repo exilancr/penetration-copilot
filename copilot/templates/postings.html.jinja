@@ -1,0 +1,24 @@
+{% extends "base.html.jinja" %}
+{% block title %}{{title}}{% endblock %}
+{% block header %}Postings{% endblock %}
+{% block content %}
+<div class="pure-g">
+    {% for posting in postings %}
+        <div class="pure-u-lg-1-3">
+            <h1><a class="mimic" href="/posting/item/{{posting.id}}">{{ posting.title }}</a></h1>
+            <p>
+                <b>{{ posting.company }}</b> |
+                <a class="mimic" href="{{posting.url}}"><i class="fa-solid fa-globe"></i>&nbsp;<u>Original</u></a> |
+            <span><i class="fa-solid fa-upload"></i>&nbsp;{{ posting.posted_at | safe_date }}</span> |
+            <span><i class="fa-solid fa-business-time" style="color: #993333;"></i>&nbsp;{{ posting.deadline_at | safe_date }}</span>
+            </p>
+            <p>{{ posting.description }}</p>
+            <div>
+                {% for skill in posting.skills %}
+                    <span class='chip bold dotted rounded xsmall'>{{ skill }}</span>
+                {% endfor %}
+            </div>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}
