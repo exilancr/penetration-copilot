@@ -202,14 +202,45 @@ class ProfileController:
             return ProfileController().index()
         app.route(prefix)(profileIndexHandler)
 
+        def profileItemHandler(id):
+            return ProfileController().item(id)
+        app.route(prefix + "/<id>")(profileItemHandler)
+
+        def profileEditHandler(id):
+            return ProfileController().edit(id)
+        app.route(prefix + "/<id>/edit", methods=['GET', 'PUT'])(profileEditHandler)
+
+
+
+
     def index(self):
         log.debug("ProfileController.profile(), request: %s", request)
         app = current_app.instance()
-        # get profile files
         profiles = {}
         for filename in os.listdir(app.storage.profilesPath):
             if filename.endswith(".json"):
+                itemKey = filename.replace(".json", "")
                 with open(os.path.join(app.storage.profilesPath, filename), "r") as f:
-                    profiles[filename] = models.Profile.model_validate_json(f.read())
+                    profiles[itemKey] = models.Profile.model_validate_json(f.read())
         resp = {key: prof.dict() for key, prof in profiles.items()}
         return jsonify(resp)
+
+    def item(self, id):
+        app = current_app.instance()
+        profilePath = os.path.join(app.storage.profilesPath, f'{id}.json')
+        if not os.path.exists(profilePath):
+            return "Not found", 404
+        profile = None
+        with open(profilePath, 'r') as f:
+            profile = models.Profile.model_validate_json(f.read())
+        return render_page("profile.html.jinja", profileId = id, profile = profile)
+
+    def edit(self, id):
+        app = current_app.instance()
+        profilePath = os.path.join(app.storage.profilesPath, f'{id}.json')
+        if not os.path.exists(profilePath):
+            return "Not found", 404
+        profile = None
+        with open(profilePath, 'r') as f:
+            profile = models.Profile.model_validate_json(f.read())
+        return render_page("profile-edit.html.jinja", profileId = id, profile = profile)

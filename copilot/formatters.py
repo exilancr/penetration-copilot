@@ -7,13 +7,13 @@ from pydantic import BaseModel
 
 def contact_to_html(contact):
     formatters = {
-        "email": lambda c: f'<i class="fa-solid fa-envelope"></i>&nbsp;<a class="mimic" href="mailto:{c['value']}">{c['value']}</a>',
-        "phone": lambda c: f'<i class="fa-solid fa-square-phone"></i>&nbsp;<a class="mimic" href="tel:{c['value']}">{c['value']}</a>',
-        "linkedin": lambda c: f'<i class="fa-brands fa-linkedin"></i>&nbsp;<a class="mimic" href="https://linkedin.com/in/{c['value']}">{c['value']}</a>',
-        "github": lambda c: f'<i class="fa-brands fa-github"></i>&nbsp;<a class="mimic" href="https://github.com/{c['value']}">{c['value']}</a>',
-        "location": lambda c: f'<i class="fa-solid fa-map-marker-alt"></i>&nbsp;{c['value']}',
+        "email": lambda c: f'<i class="fa-solid fa-envelope"></i>&nbsp;<a class="mimic" href="mailto:{c.value}">{c.value}</a>',
+        "phone": lambda c: f'<i class="fa-solid fa-square-phone"></i>&nbsp;<a class="mimic" href="tel:{c.value}">{c.value}</a>',
+        "linkedin": lambda c: f'<i class="fa-brands fa-linkedin"></i>&nbsp;<a class="mimic" href="https://linkedin.com/in/{c.value}">{c.value}</a>',
+        "github": lambda c: f'<i class="fa-brands fa-github"></i>&nbsp;<a class="mimic" href="https://github.com/{c.value}">{c.value}</a>',
+        "location": lambda c: f'<i class="fa-solid fa-map-marker-alt"></i>&nbsp;{c.value}',
     }
-    return formatters.get(contact['type'], lambda c: c['value'])(contact)
+    return formatters.get(contact.type, lambda c: c.value)(contact)
 
 def markdown_to_html(input):
     return markdown.markdown(input)
