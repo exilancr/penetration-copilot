@@ -14,8 +14,8 @@ from copilot.models import DeclBase
 
 
 class Storage:
-    def __init__(self):
-        self.dataPath = os.path.join(os.getenv("XDG_USER_DATA", os.path.expanduser("~/.local/share")), 'penetration-copilot')
+    def __init__(self, settings):
+        self.dataPath = os.path.join(settings.dataDir, 'penetration-copilot')
         if not os.path.exists(self.dataPath):
             os.makedirs(self.dataPath)
         self.postingsPath = os.path.join(self.dataPath, "postings")

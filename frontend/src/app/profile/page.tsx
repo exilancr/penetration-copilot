@@ -10,10 +10,7 @@ export default function Page() {
   const [data, setData] = useState(null)
   const [isLoading, setLoading] = useState(true)
 
-  var protocol = location.protocol;
-    let slashes = protocol.concat("//");
-    let host = slashes.concat(window.location.hostname + ':5000');
-    let profileUrl = host + '/profile';
+  let profileUrl = '/api/profile';
   useEffect(() => {
     fetch(profileUrl)
       .then((res) => res.json())

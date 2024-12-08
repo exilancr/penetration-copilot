@@ -35,7 +35,7 @@ class HomeController:
         log.debug("Registering HomeController")
         def homeHandler():
             return HomeController().home()
-        app.route("/")(homeHandler)
+        app.route("/api/")(homeHandler)
         # def profileHandler():
             # return HomeController().profile()
         # app.route("/profile")(profileHandler)
@@ -57,7 +57,7 @@ class PostingController:
 
     @staticmethod
     def register(app: Flask):
-        prefix = "/posting"
+        prefix = "/api/posting"
         log.debug("Registering PostingController")
         def indexHandler():
             return PostingController().index()
@@ -196,7 +196,7 @@ class ProfileController:
 
     @staticmethod
     def register(app: Flask):
-        prefix = "/profile"
+        prefix = "/api/profile"
         log.debug("Registering ProfileController")
         def profileIndexHandler():
             return ProfileController().index()

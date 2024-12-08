@@ -17,6 +17,7 @@ import os
 class Settings(BaseModel):
     debug: bool = False
     openaiApiKey: str = None
+    dataDir: str = None
 
 class Application(Flask):
     _instance = None
@@ -25,7 +26,7 @@ class Application(Flask):
         self.settings = settings
         self.debug = settings.debug
         self.intelligence = None
-        self.storage = Storage()
+        self.storage = Storage(settings)
         self.tasks = TaskProcessor(os.cpu_count())
         ControllerBase.register(self)
         register_views(self)

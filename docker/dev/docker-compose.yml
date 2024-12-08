@@ -1,0 +1,47 @@
+
+
+
+services:
+  haproxy:
+    image: haproxy:latest
+    ports:
+      - "55550:80"
+    volumes:
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
+      - ../../resources/static:/var/www/html:ro
+    depends_on:
+      - frontend
+      - backend
+      - static
+    user: "1000:1000"
+    command: "haproxy -V -f /usr/local/etc/haproxy/haproxy.cfg"
+  backend:
+    image: backend
+    build:
+      context: ../..
+      dockerfile: docker/dev/backend/Dockerfile
+    ports:
+      - "55551:5000"
+    volumes:
+      - ../../backend:/app
+    environment:
+      - DEBUG=true
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    user: "1000:1000"
+  frontend:
+    image: frontend
+    build:
+      context: ../..
+      dockerfile: docker/dev/frontend/Dockerfile
+    ports:
+      - "55552:3000"
+    volumes:
+      - ../../frontend:/app
+    user: "1000:1000"
+  static:
+    image: nginx:latest
+    volumes:
+      - ../../resources/static:/var/www/html:ro
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "55553:80"
