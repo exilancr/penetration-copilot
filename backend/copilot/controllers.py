@@ -168,7 +168,7 @@ class PostingController:
         processedPath = os.path.join(postingsDir, str(id) + ".processed.html")
         rawPath = os.path.join(postingsDir, str(id) + ".raw.html")
         if not os.path.exists(rawPath) and not os.path.exists(processedPath):
-            return {"stat/apius": "error", "message": "Raw file not found"}, 404
+            return {"status": "error", "message": "Raw file not found"}, 404
         if not os.path.exists(rawPath):
             os.rename(processedPath, rawPath)
         app.tasks.add_task(lambda id=id: scraping.process_posting(id, app))
