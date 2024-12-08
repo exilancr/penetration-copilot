@@ -35,7 +35,7 @@ class HomeController:
         log.debug("Registering HomeController")
         def homeHandler():
             return HomeController().home()
-        app.route("/")(homeHandler)
+        app.route("/api/")(homeHandler)
         # def profileHandler():
             # return HomeController().profile()
         # app.route("/profile")(profileHandler)
@@ -57,7 +57,7 @@ class PostingController:
 
     @staticmethod
     def register(app: Flask):
-        prefix = "/posting"
+        prefix = "/api/posting"
         log.debug("Registering PostingController")
         def indexHandler():
             return PostingController().index()
@@ -168,7 +168,7 @@ class PostingController:
         processedPath = os.path.join(postingsDir, str(id) + ".processed.html")
         rawPath = os.path.join(postingsDir, str(id) + ".raw.html")
         if not os.path.exists(rawPath) and not os.path.exists(processedPath):
-            return {"status": "error", "message": "Raw file not found"}, 404
+            return {"stat/apius": "error", "message": "Raw file not found"}, 404
         if not os.path.exists(rawPath):
             os.rename(processedPath, rawPath)
         app.tasks.add_task(lambda id=id: scraping.process_posting(id, app))
@@ -196,7 +196,7 @@ class ProfileController:
 
     @staticmethod
     def register(app: Flask):
-        prefix = "/profile"
+        prefix = "/api/profile"
         log.debug("Registering ProfileController")
         def profileIndexHandler():
             return ProfileController().index()
