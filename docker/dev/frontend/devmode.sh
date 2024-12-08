@@ -10,3 +10,4 @@ npm install
 
 # Run the frontend
 npm run dev
+
