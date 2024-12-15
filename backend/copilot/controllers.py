@@ -4,10 +4,14 @@ import logging
 log = logging.getLogger(__name__)
 
 from flask import Flask, request, current_app, jsonify
+from six.moves.urllib.request import urlopen
+from pydantic import BaseModel as PydanticModel
+import json
+from jose import jwt
 
 from copilot.views import render_page
 
-
+import re
 import copilot.scraping as scraping
 import copilot.models as models
 import uuid
@@ -15,74 +19,144 @@ import uuid
 import os
 
 
+
+
 class ControllerBase:
+    __request_handlers: dict = {}
+
     def __init__(self):
         pass
 
     @staticmethod
     def register(app: Flask):
-        log.debug("Registering ControllerBase")
-        HomeController.register(app)
-        PostingController.register(app)
-        ProfileController.register(app)
-
-class HomeController:
-    def __init__(self):
-        pass
-
-    @staticmethod
-    def register(app: Flask):
-        log.debug("Registering HomeController")
-        def homeHandler():
-            return HomeController().home()
-        app.route("/api/")(homeHandler)
-        # def profileHandler():
-            # return HomeController().profile()
-        # app.route("/profile")(profileHandler)
-
-    def home(self):
-        log.debug("HomeController.hello_world(), request: %s", request)
-        return render_page("home.html.jinja", title="Home", header="Hello, world!")
-
-
-    # def profile(self):
-    #     log.debug("HomeController.profile(), request: %s", request)
-    #     return render_page("profile.html.jinja", title="Profile", header="Profile Page", profile=profile)
-
-
-
-class PostingController:
-    def __init__(self):
-        pass
+        log.debug("Registering Controllers")
+        # Call derived controllers register methods
+        for controller in ControllerBase.__subclasses__():
+            log.debug(f"Registering controller {controller.__name__} ...")
+            full_class_name = f"{controller.__module__}.{controller.__name__}"
+            if full_class_name not in ControllerBase.__request_handlers:
+                continue
+            for method_name, method_data in ControllerBase.__request_handlers[full_class_name].items():
+                log.debug(f"Registering method {method_name} ...")
+                handler_lambda = lambda controller=controller, method_name=method_name, *args, **kwargs: getattr(controller(), method_name)(*args, **kwargs)
+                handler_lambda.__name__ = f"{full_class_name}_{method_name}"
+                app.route(controller.__prefix__ + method_data["route"], methods=method_data["methods"])(handler_lambda)
 
     @staticmethod
-    def register(app: Flask):
-        prefix = "/api/posting"
-        log.debug("Registering PostingController")
-        def indexHandler():
-            return PostingController().index()
-        app.route(prefix)(indexHandler)
+    def request(route, methods=["GET"]):
+        def decorator(func):
+            full_class_name = f"{func.__module__}.{'.'.join(func.__qualname__.split('.')[:-1])}"
+            if full_class_name not in ControllerBase.__request_handlers:
+                ControllerBase.__request_handlers[full_class_name] = {}
+            ControllerBase.__request_handlers[full_class_name][func.__name__] = {
+                "route": route,
+                "methods": methods
+            }
+            return func
+        return decorator
 
-        def uploadHandler():
-            return PostingController().upload()
-        app.route(prefix + "/upload", methods=["PUT"])(uploadHandler)
+    @staticmethod
+    def authenticated(permissions: list[str] = []):
+        def decorator(func):
+            def wrapper(*args, **kwargs):
+                from  copilot.application import Application
+                app = Application.instance()
+                # Check if the user is authenticated
+                if "Authorization" not in request.headers:
+                    raise Exception("Authorization header is missing")
+                token = request.headers["Authorization"].split(" ")[1]
+                try:
+                    verified = app.auth0.verifyToken(token)
+                    log.debug(f"Authenticated user: {verified}, permissions: {permissions}")
+                    for perm in permissions:
+                        if perm not in verified["permissions"]:
+                            raise Exception(f"Permission '{perm}' is missing")
+                        log.debug(f"Permission '{perm}' is granted to user {verified['sub']}")
+                        kwargs["user"] = verified
+                except Exception as e:
+                    raise Exception("Authentication failed")
+                return func(*args, **kwargs)
+            return wrapper
+        return decorator
 
-        def uploadPrepareHandler():
-            return PostingController().uploadPrepare()
-        app.route(prefix + "/uploadPrepare", methods=["PUT"])(uploadPrepareHandler)
 
-        def uploadStatusHandler():
-            return PostingController().uploadStatus()
-        app.route(prefix + "/uploadStatus")(uploadStatusHandler)
 
-        def itemHandler(id):
-            return PostingController().item(id)
-        app.route(prefix + "/item/<id>")(itemHandler)
 
-        def rescrapeHandler(id):
-            return PostingController().rescrape(id)
-        app.route(prefix + "/rescrape/<id>")(rescrapeHandler)
 
+class Auth0User(PydanticModel):
+    nickname: str
+    name: str
+    picture: str
+    email: str
+    email_verified: bool
+    sub: str
+    org_id: str|None
+    updated_at: str|None
+    iss: str|None
+    aud: str|None
+    iat: int|None
+    exp: int|None
+    nonce: str|None
+    sid: str|None
+class Auth0TokenSet(PydanticModel):
+    accessToken: str
+    refreshToken: str
+    expiresAt: int
+class Auth0Internal(PydanticModel):
+    sid: str
+    createdAt: int
+class Auth0UserData(PydanticModel):
+    user: Auth0User
+    tokenSet: Auth0TokenSet
+    internal: Auth0Internal|None
+
+
+
+class AuthController(ControllerBase):
+    __prefix__ = "/trueapi/auth"
+
+    @ControllerBase.request("/store-auth0-session", methods=["PUT"])
+    def storeAuth0Session(self):
+        from  copilot.application import Application
+        app = Application.instance()
+        jsonData = request.get_json()
+        userData = Auth0UserData(
+            user=Auth0User.model_construct(**jsonData['user']),
+            tokenSet=Auth0TokenSet.model_construct(**jsonData['tokenSet']),
+            internal=Auth0Internal.model_construct(**jsonData['internal'])
+        )
+        log.debug(f"{self.__class__.__name__}.storeAuth0Session, user: {userData.user.sub}")
+
+        validated_token = app.auth0.verifyToken(userData.tokenSet.accessToken)
+        log.debug(f"AuthController.storeAuth0Session(), validated token.")
+        userId = validated_token["sub"]
+
+        user = app.storage.dbSession.query(models.User).filter(models.User.id == userId).one_or_none()
+        if not user:
+            user = models.User(id=userData.user.sub, email=userData.user.email, name=userData.user.name)
+            app.storage.dbSession.add(user)
+            app.storage.dbSession.commit()
+            log.debug(f"AuthController.storeAuth0Session(), user created: {user}")
+
+        log.debug(f"AuthController.storeAuth0Session(), user: {user.id}")
+        return {"status": "ok"}
+
+class TestController(ControllerBase):
+    __prefix__ = "/trueapi/test"
+
+
+    @ControllerBase.authenticated(permissions=['user'])
+    @ControllerBase.request("/")
+    def index(self, user):
+        log.debug(f"{self.__class__.__name__}.index(), user: {user}")
+        return {"status": "ok"}
+
+class PostingController(ControllerBase):
+    __prefix__ = "/trueapi/posting"
+
+
+    @ControllerBase.authenticated(permissions=['user'])
+    @ControllerBase.request("/")
     def index(self):
         app = current_app.instance()
         offset = request.args.get("offset", 0, type=int)
@@ -102,6 +176,8 @@ class PostingController:
         # render view
         return render_page("postings.html.jinja", title="Postings", count=count, totalCount=totalCount, offset=offset, postings=postings)
 
+    @ControllerBase.authenticated(permissions=['user'])
+    @ControllerBase.request("/upload", methods=["PUT"])
     def upload(self):
         log.debug("PostingController.upload(), request: %s", request)
         # check that request method is post
@@ -132,6 +208,7 @@ class PostingController:
         # return json with status ok
         return {"status": "ok"}
 
+    @ControllerBase.request("/uploadPrepare", methods=["PUT"])
     def uploadPrepare(self):
         log.debug("PostingController.uploadPrepare(), request: %s", request)
         if request.method != "PUT":
@@ -141,6 +218,7 @@ class PostingController:
         log.debug("preparePageLoad: %s", data['url'])
         return {"status": "ok", "id": uuid.uuid4()}
 
+    @ControllerBase.request("/uploadStatus")
     def uploadStatus(self):
         log.debug("PostingController.uploadStatus(), request: %s", request)
         if "id" not in request.args:
@@ -158,6 +236,7 @@ class PostingController:
             return {"status": "error"}
         return {"status": "ok"}
 
+    @ControllerBase.request("/rescrape/<id>")
     def rescrape(self, id):
         try:
             id = uuid.UUID(id)
@@ -174,7 +253,7 @@ class PostingController:
         app.tasks.add_task(lambda id=id: scraping.process_posting(id, app))
         return {"status": "ok"}
 
-
+    @ControllerBase.request("/item/<id>")
     def item(self, id):
         try:
             id = uuid.UUID(id)
@@ -190,32 +269,33 @@ class PostingController:
         return render_page("posting.html.jinja", title="Posting", header="Posting", posting=posting)
 
 
-class ProfileController:
-    def __init__(self):
-        pass
+class ProfileController(ControllerBase):
+    __prefix__ = "/trueapi/profile"
 
-    @staticmethod
-    def register(app: Flask):
-        prefix = "/api/profile"
-        log.debug("Registering ProfileController")
-        def profileIndexHandler():
-            return ProfileController().index()
-        app.route(prefix)(profileIndexHandler)
+    # @staticmethod
+    # def register(app: Flask):
+    #     prefix = "/api/profile"
+    #     log.debug("Registering ProfileController")
+    #     def profileIndexHandler():
+    #         return ProfileController().index()
+    #     app.route(prefix)(profileIndexHandler)
 
-        def profileItemHandler(id):
-            return ProfileController().item(id)
-        app.route(prefix + "/<id>")(profileItemHandler)
+    #     def profileItemHandler(id):
+    #         return ProfileController().item(id)
+    #     app.route(prefix + "/<id>")(profileItemHandler)
 
-        def profileEditHandler(id):
-            return ProfileController().edit(id)
-        app.route(prefix + "/<id>/edit", methods=['GET', 'PUT'])(profileEditHandler)
-
+    #     def profileEditHandler(id):
+    #         return ProfileController().edit(id)
+    #     app.route(prefix + "/<id>/edit", methods=['GET', 'PUT'])(profileEditHandler)
 
 
 
+    @ControllerBase.request("/items")
     def index(self):
-        log.debug("ProfileController.profile(), request: %s", request)
-        app = current_app.instance()
+        log.debug(f"{self.__class__.__name__}.index(), request: {request}")
+        from  copilot.application import Application
+        app = Application.instance()
+        # app = copilotApp()
         profiles = {}
         for filename in os.listdir(app.storage.profilesPath):
             if filename.endswith(".json"):
@@ -223,8 +303,10 @@ class ProfileController:
                 with open(os.path.join(app.storage.profilesPath, filename), "r") as f:
                     profiles[itemKey] = models.Profile.model_validate_json(f.read())
         resp = {key: prof.dict() for key, prof in profiles.items()}
+        log.debug(f"{self.__class__.__name__}.index(), response: {resp}")
         return jsonify(resp)
 
+    @ControllerBase.request("/item/<id>")
     def item(self, id):
         app = current_app.instance()
         profilePath = os.path.join(app.storage.profilesPath, f'{id}.json')
@@ -235,6 +317,7 @@ class ProfileController:
             profile = models.Profile.model_validate_json(f.read())
         return render_page("profile.html.jinja", profileId = id, profile = profile)
 
+    @ControllerBase.request("/update/<id>", methods=['PUT'])
     def edit(self, id):
         app = current_app.instance()
         profilePath = os.path.join(app.storage.profilesPath, f'{id}.json')

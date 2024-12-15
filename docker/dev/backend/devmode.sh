@@ -4,10 +4,10 @@ set -e
 
 # This script is used to start the backend in development mode.
 # Create venv
-python3 -m venv .venv
+python3 -m venv /tmp/venv
 
 # Activate venv
-source .venv/bin/activate
+source /tmp/venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
