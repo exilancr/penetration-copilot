@@ -37,13 +37,11 @@ def promptAsModel(client, model, prompts: List[str]):
 
 
 
-def register_intelligence(app):
-    if app.settings.openaiApiKey is None or app.settings.openaiApiKey == "":
-        raise ValueError("Please set the OPENAI_API_KEY environment variable.")
-    app.intelligence = OpenAI(
-        api_key=app.settings.openaiApiKey,
-    )
-    log.info("Intelligence registered")
+# def register_intelligence(app):
+#     if app.settings.openaiApiKey is None or app.settings.openaiApiKey == "":
+#         raise ValueError("Please set the OPENAI_API_KEY environment variable.")
+#     app.intelligence =
+#     log.info("Intelligence registered")
 
 
 def tuneExperienceDescription(app, experience: ExperienceModel, jobDescription: str, comment: str):

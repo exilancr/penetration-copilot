@@ -7,7 +7,7 @@ import uuid
 
 
 import sqlalchemy as SQA
-from copilot.models import DeclBase
+from copilot.models import AlchemyModel
 
 
 
@@ -28,8 +28,6 @@ class Storage:
         self.dbUrl = f"sqlite:///{self.dbFilePath}"
         self.dbEngine = SQA.create_engine(self.dbUrl)
         if not os.path.exists(self.dbFilePath):
-            DeclBase.metadata.create_all(self.dbEngine)
+            AlchemyModel.metadata.create_all(self.dbEngine)
         self.dbSession = SQA.orm.sessionmaker(bind=self.dbEngine)()
         self.kvdb = {}
-
-
